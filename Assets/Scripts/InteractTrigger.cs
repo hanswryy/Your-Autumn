@@ -15,6 +15,12 @@ public class InteractTrigger : MonoBehaviour
     public static bool PlayerInInteractZone { get; private set; }
     public static bool IsDialogOpen         { get; private set; }
 
+    // When true, ALL interact triggers ignore Space (e.g. during a cutscene).
+    public static bool InteractionsLocked   { get; private set; }
+
+    public static void LockInteractions()   => InteractionsLocked = true;
+    public static void UnlockInteractions()  => InteractionsLocked = false;
+
     private IInteractable target;
     private bool playerInZone;
     private bool dialogOpen;
@@ -33,7 +39,7 @@ public class InteractTrigger : MonoBehaviour
 
     void Update()
     {
-        if (!playerInZone || dialogOpen) return;
+        if (!playerInZone || dialogOpen || InteractionsLocked) return;
         if (Input.GetKeyDown(KeyCode.Space))
         {
             dialogOpen   = true;

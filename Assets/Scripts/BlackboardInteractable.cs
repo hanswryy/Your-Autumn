@@ -1,4 +1,3 @@
-using System.Collections;
 using Fungus;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,12 +11,6 @@ public class BlackboardInteractable : MonoBehaviour, IInteractable
     [Header("Scene Transition")]
     public string overworldSceneName = "OverworldScene";
 
-    [Header("Cutscene")]
-    [Tooltip("Empty GameObject placed just outside the door — player walks here")]
-    public Transform walkTarget;
-    public float walkDuration  = 1.2f;
-    public float fadeDuration  = 1.0f;
-
     private InteractTrigger interactTrigger;
 
     void Awake()
@@ -28,15 +21,17 @@ public class BlackboardInteractable : MonoBehaviour, IInteractable
     public void OnInteract()
     {
         if (flowchart == null) { Debug.LogWarning("[BlackboardInteractable] No Flowchart assigned.", this); return; }
+        if (flowchart.HasExecutingBlocks()) return; // already running — don't start a duplicate
         flowchart.ExecuteBlock(blockName);
     }
 
     // ── Fungus YES branch ───────────────────────────────────────────────────
 
-    // Call Method step 1: disable control, start walk animation, lock door open.
+    // Step 1: hand off control to the cutscene. Player stands idle until told to walk.
     public void EnableCutsceneMode()
     {
         GetComponent<BlackboardDoorTrigger>()?.LockOpen();
+        InteractTrigger.LockInteractions(); // block Space-interacts (e.g. Karina's shop) during the cutscene
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player == null) return;
@@ -47,38 +42,26 @@ public class BlackboardInteractable : MonoBehaviour, IInteractable
         Rigidbody rb = player.GetComponent<Rigidbody>();
         if (rb) { rb.velocity = Vector3.zero; rb.isKinematic = true; }
 
-        Animator anim = player.GetComponent<Animator>();
-        if (anim) anim.SetBool("isRunning", true);
+        SetPlayerRunning(false);
     }
 
-    // Call Method step 2 (after Fade Screen): load the overworld.
+    // Call before a LeanTween "Move" command so the run animation plays while walking.
+    public void PlayerStartWalk() => SetPlayerRunning(true);
+
+    // Call after a "Move" command finishes so the player idles during dialog.
+    public void PlayerStopWalk() => SetPlayerRunning(false);
+
+    private void SetPlayerRunning(bool running)
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        Animator anim = player != null ? player.GetComponent<Animator>() : null;
+        if (anim) anim.SetBool("isRunning", running);
+    }
+
+    // Final step (after Fade Screen): load the overworld.
     public void GoToOverworld()
     {
-        SceneManager.LoadScene(overworldSceneName);
-    }
-
-    // Single Call Method alternative — does everything in one shot.
-    public void StartCutscene()
-    {
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) return;
-
-        // Freeze player control
-        movement mov = player.GetComponent<movement>();
-        if (mov) mov.enabled = false;
-
-        Rigidbody rb = player.GetComponent<Rigidbody>();
-        if (rb) { rb.velocity = Vector3.zero; rb.isKinematic = true; }
-
-        Animator anim = player.GetComponent<Animator>();
-        if (anim) anim.SetBool("isRunning", true);
-    }
-
-    IEnumerator FadeAndLoad()
-    {
-        if (ScreenFader.Instance != null)
-            yield return StartCoroutine(ScreenFader.Instance.FadeToBlack(fadeDuration));
-
+        InteractTrigger.UnlockInteractions(); // clear the lock so the next scene starts interactable
         SceneManager.LoadScene(overworldSceneName);
     }
 

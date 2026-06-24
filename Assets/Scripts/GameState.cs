@@ -21,6 +21,10 @@ public class GameState : MonoBehaviour
     public PlayerData playerData = new PlayerData();
     private string saveFilePath;
 
+    [Header("Item System")]
+    [Tooltip("Optional — falls back to Resources/ItemDatabase if left empty")]
+    public ItemDatabase itemDatabase;
+
     [Header("Battle Transition Data")]
     public Vector3 playerPositionBeforeBattle;
     public string lastBattleEnemyId;
@@ -39,6 +43,9 @@ public class GameState : MonoBehaviour
         Instance = this;
 
         saveFilePath = Application.persistentDataPath + "/playerData.sav";
+
+        if (itemDatabase == null)
+            itemDatabase = Resources.Load<ItemDatabase>("ItemDatabase");
     }
 
     // Save game data to file
@@ -134,6 +141,84 @@ public class GameState : MonoBehaviour
                 playerData.inventoryItems.RemoveAt(index);
             }
         }
+    }
+
+    // How many of an item the player currently carries.
+    public int GetItemCount(string itemId)
+    {
+        ItemData item = playerData.inventoryItems.Find(i => i.itemId == itemId);
+        return item != null ? item.quantity : 0;
+    }
+
+    // ── Currency ─────────────────────────────────────────────────────────────
+    public float Currency => playerData.currency;
+
+    public bool CanAfford(float amount) => playerData.currency >= amount;
+
+    public void AddCurrency(float amount)
+    {
+        playerData.currency += amount;
+        Debug.Log($"Added {amount} currency (new total: {playerData.currency})");
+    }
+
+    // Returns true if the player had enough and the amount was deducted.
+    public bool SpendCurrency(float amount)
+    {
+        if (!CanAfford(amount)) return false;
+        playerData.currency -= amount;
+        Debug.Log($"Spent {amount} currency (remaining: {playerData.currency})");
+        return true;
+    }
+
+    // Give an item to the player for free (e.g. story rewards), by id from the database.
+    public bool GiveItem(string itemId, int quantity = 1)
+    {
+        if (itemDatabase == null)
+        {
+            Debug.LogWarning("[GameState] No ItemDatabase assigned; cannot give item.");
+            return false;
+        }
+
+        ItemDefinition def = itemDatabase.GetItem(itemId);
+        if (def == null)
+        {
+            Debug.LogWarning($"[GameState] Unknown item id '{itemId}'.");
+            return false;
+        }
+
+        AddItem(def.CreateInstance(quantity));
+        SaveGame();
+        return true;
+    }
+
+    // ── Purchasing ───────────────────────────────────────────────────────────
+    // Buys one (or more) of an item by id from the ItemDatabase.
+    // Returns true on success; false if the item is unknown or unaffordable.
+    public bool PurchaseItem(string itemId, int quantity = 1)
+    {
+        if (itemDatabase == null)
+        {
+            Debug.LogWarning("[GameState] No ItemDatabase assigned; cannot purchase.");
+            return false;
+        }
+
+        ItemDefinition def = itemDatabase.GetItem(itemId);
+        if (def == null)
+        {
+            Debug.LogWarning($"[GameState] Unknown item id '{itemId}'.");
+            return false;
+        }
+
+        float totalCost = def.buyPrice * quantity;
+        if (!SpendCurrency(totalCost))
+        {
+            Debug.Log($"Not enough currency to buy {quantity}x {def.itemName} (cost {totalCost}, have {playerData.currency})");
+            return false;
+        }
+
+        AddItem(def.CreateInstance(quantity));
+        SaveGame();
+        return true;
     }
 
     // Add or update a party member
@@ -277,26 +362,18 @@ public class GameState : MonoBehaviour
 
     private void AddInitialItems()
     {
-        // Add some starting potions
-        ItemData potion = new ItemData();
-        potion.itemId = "potion";
-        potion.itemName = "Potion";
-        potion.description = "Restores 30 HP";
-        potion.itemType = ItemType.Consumable;
-        potion.quantity = 3;
-        potion.restoreHP = 30;
-        potion.usableInBattle = true;
-        playerData.inventoryItems.Add(potion);
-        
-        // Add starting ether
-        ItemData ether = new ItemData();
-        ether.itemId = "ether";
-        ether.itemName = "Ether";
-        ether.description = "Restores 15 MP";
-        ether.itemType = ItemType.Consumable;
-        ether.quantity = 2;
-        ether.restoreMP = 15;
-        ether.usableInBattle = true;
-        playerData.inventoryItems.Add(ether);
+        if (itemDatabase == null)
+        {
+            Debug.LogWarning("[GameState] No ItemDatabase assigned; starting with empty inventory.");
+            return;
+        }
+
+        playerData.currency = itemDatabase.startingCurrency;
+
+        foreach (var entry in itemDatabase.startingItems)
+        {
+            if (entry == null || entry.item == null) continue;
+            playerData.inventoryItems.Add(entry.item.CreateInstance(entry.quantity));
+        }
     }
 }
