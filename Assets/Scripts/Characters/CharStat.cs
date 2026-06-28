@@ -14,5 +14,6 @@ public class CharStat
     public int attack = 10;
     public int defense = 5;
     public int speed = 5;
+    public int critChance = 5; // % chance for an attack to deal critical (doubled-attack) damage
     public int experience = 0;
 }

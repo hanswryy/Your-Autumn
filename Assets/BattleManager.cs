@@ -24,7 +24,26 @@ public class BattleManager : MonoBehaviour
     [Header("Audio")]
     public AudioClip battleMusic;
     public AudioClip victoryMusic;
-    
+
+    [Header("Cinematics")]
+    [Tooltip("Camera used for the battle. Falls back to Camera.main if left empty.")]
+    public Camera battleCamera;
+    [Tooltip("Where the active player character stands during their turn. Falls back to centerFallback if empty.")]
+    public Transform centerPoint;
+    [Tooltip("World position used as the turn 'center' when no centerPoint Transform is assigned.")]
+    public Vector3 centerFallback = new Vector3(4f, 1.6f, 1.035f);
+    [Tooltip("Movement speed (units/second) when characters walk to/from their cinematic positions.")]
+    public float moveSpeed = 14f;
+    [Tooltip("How far in front of the target the attacker stops.")]
+    public float frontOffset = 2.5f;
+    [Tooltip("Camera field of view while zoomed in on the active player character.")]
+    public float zoomedFOV = 50f;
+    [Tooltip("Field of view change speed (degrees/second).")]
+    public float zoomSpeed = 60f;
+
+    private float defaultFOV;
+    private Vector3 actorOriginalPosition;
+
     private List<BattleCharacter> playerParty = new List<BattleCharacter>();
     private List<BattleCharacter> enemyParty = new List<BattleCharacter>();
     private BattleTurnState state;
@@ -47,6 +66,16 @@ public class BattleManager : MonoBehaviour
     
     void Start()
     {
+        // Resolve the camera and remember its default field of view for zoom in/out.
+        if (battleCamera == null)
+        {
+            battleCamera = Camera.main;
+        }
+        if (battleCamera != null)
+        {
+            defaultFOV = battleCamera.fieldOfView;
+        }
+
         state = BattleTurnState.Start;
         StartCoroutine(SetupBattle());
     }
@@ -163,7 +192,7 @@ public class BattleManager : MonoBehaviour
         }
         
         currentActor = playerParty[currentPartyMemberIndex];
-        
+
         // Skip turn if character is incapacitated
         if (!currentActor.CanAct())
         {
@@ -171,7 +200,25 @@ public class BattleManager : MonoBehaviour
             StartPlayerTurn();
             return;
         }
-        
+
+        // Move the active character to the center, zoom in, then show the action menu.
+        StartCoroutine(BeginPlayerTurn());
+    }
+
+    IEnumerator BeginPlayerTurn()
+    {
+        // Expire any buffs that have run their course before this character acts.
+        currentActor.TickBuffs();
+
+        // Remember where this character started so we can send them back later.
+        actorOriginalPosition = currentActor.transform.position;
+
+        Vector3 center = centerPoint != null ? centerPoint.position : centerFallback;
+
+        // Walk to center and zoom in on the character at the same time.
+        StartCoroutine(ZoomCamera(zoomedFOV));
+        yield return MoveCharacterTo(currentActor.transform, center);
+
         // Show action selection UI for this character
         uiController.ShowActionMenu(currentActor);
     }
@@ -179,10 +226,20 @@ public class BattleManager : MonoBehaviour
     public void OnActionSelected(BattleAction action)
     {
         currentAction = action;
-        
+
+        // Self-targeted actions (Defend, Focus, ...) don't need a target menu.
+        if (action.targetType == TargetType.Self)
+        {
+            currentTarget = currentActor;
+            uiController.ShowBattleView();
+            state = BattleTurnState.PlayerAction;
+            StartCoroutine(PerformAction());
+            return;
+        }
+
         // Determine valid targets for this action
         List<BattleCharacter> validTargets = GetValidTargets(action);
-        
+
         // Show target selection UI
         uiController.ShowTargetMenu(validTargets);
     }
@@ -241,26 +298,30 @@ public class BattleManager : MonoBehaviour
     
     IEnumerator PerformAction()
     {
+        StartCoroutine(ZoomCamera(defaultFOV));
         // Display action message
         uiController.ShowBattleMessage($"{currentActor.CharacterName} uses {currentAction.actionName}!");
-        
-        yield return new WaitForSeconds(1f);
 
-        // Play attack animation if it's an attack action
-        if (currentAction is AttackAction)
+        yield return new WaitForSeconds(0.5f);
+
+        // For an attack (or damaging skill), walk up to the chosen enemy before swinging.
+        if (IsApproachAttack(currentAction) && currentTarget != null)
         {
+            yield return MoveCharacterTo(currentActor.transform, GetFrontPosition(currentActor, currentTarget));
             currentActor.PlayAttackAnimation();
+            yield return new WaitForSeconds(0.4f);
         }
-        
-        
+
         // Execute action logic
         yield return currentAction.Execute(currentActor, currentTarget);
 
-        
+        // Walk the character back to where they started while the camera zooms back out.
+        yield return MoveCharacterTo(currentActor.transform, actorOriginalPosition);
+
         // Check for battle end conditions
         if (CheckBattleEnd())
             yield break;
-        
+
         // Move to next character
         currentPartyMemberIndex++;
         state = BattleTurnState.PlayerSelect;
@@ -276,6 +337,9 @@ public class BattleManager : MonoBehaviour
                 
             yield return new WaitForSeconds(1f);
             
+            // Expire any buffs that have run their course before this enemy acts.
+            enemy.TickBuffs();
+
             // Enemy selects action and target
             currentActor = enemy;
             currentAction = enemy.SelectAction();
@@ -300,18 +364,27 @@ public class BattleManager : MonoBehaviour
                 }
             }
 
-            if (currentAction is AttackAction)
-            {
-                currentActor.PlayAttackAnimation();
-            }
-                    
-            // Execute enemy action
+            // Announce the enemy action.
             uiController.ShowBattleMessage($"{currentActor.CharacterName} uses {currentAction.actionName}!");
-            
-            yield return new WaitForSeconds(1f);
-            
+
+            yield return new WaitForSeconds(0.5f);
+
+            // Remember the enemy's spot, then approach the target for an attack.
+            Vector3 enemyOrigin = enemy.transform.position;
+
+            if (IsApproachAttack(currentAction) && currentTarget != null)
+            {
+                yield return MoveCharacterTo(enemy.transform, GetFrontPosition(enemy, currentTarget));
+                currentActor.PlayAttackAnimation();
+                yield return new WaitForSeconds(0.4f);
+            }
+
+            // Execute enemy action
             yield return currentAction.Execute(currentActor, currentTarget);
-            
+
+            // Send the enemy back to where it started.
+            yield return MoveCharacterTo(enemy.transform, enemyOrigin);
+
             // Check for battle end
             if (CheckBattleEnd())
                 yield break;
@@ -406,6 +479,53 @@ public class BattleManager : MonoBehaviour
         }
     }
     
+    // Smoothly walks a transform to a world-space target position.
+    IEnumerator MoveCharacterTo(Transform mover, Vector3 worldTarget)
+    {
+        while (Vector3.Distance(mover.position, worldTarget) > 0.05f)
+        {
+            mover.position = Vector3.MoveTowards(mover.position, worldTarget, moveSpeed * Time.deltaTime);
+            yield return null;
+        }
+        mover.position = worldTarget;
+    }
+
+    // Smoothly changes the battle camera's field of view (zoom in/out).
+    IEnumerator ZoomCamera(float targetFOV)
+    {
+        if (battleCamera == null)
+            yield break;
+
+        while (Mathf.Abs(battleCamera.fieldOfView - targetFOV) > 0.05f)
+        {
+            battleCamera.fieldOfView = Mathf.MoveTowards(battleCamera.fieldOfView, targetFOV, zoomSpeed * Time.deltaTime);
+            yield return null;
+        }
+        battleCamera.fieldOfView = targetFOV;
+    }
+
+    // True for actions where the actor should walk up to the target and swing:
+    // basic attacks and damaging skills.
+    bool IsApproachAttack(BattleAction action)
+    {
+        if (action is AttackAction)
+            return true;
+        if (action is SkillAction skill && skill.skillType == SkillAction.SkillType.Damage)
+            return true;
+        return false;
+    }
+
+    // Returns a spot just in front of the target, on the attacker's side.
+    // Players approach an enemy from its left; enemies approach a player from their right.
+    Vector3 GetFrontPosition(BattleCharacter attacker, BattleCharacter target)
+    {
+        Vector3 pos = target.transform.position;
+        float dir = attacker.isEnemy ? 1f : -1f;
+        pos.x += dir * frontOffset;
+        pos.y = attacker.transform.position.y; // keep the attacker's own height
+        return pos;
+    }
+
     public void ReturnToWorld()
     {
         // Make sure GameState knows we're returning from battle

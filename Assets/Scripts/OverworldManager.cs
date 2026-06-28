@@ -1,17 +1,19 @@
 using UnityEngine;
 using System.Collections;
+using Fungus;
 
 public class OverworldManager : MonoBehaviour
 {
     public GameObject playerPrefab; // Reference to your player prefab if needed
-    
+
     [Header("Scene Transition")]
     public float fadeInDuration = 1f;
 
     void Start()
     {
-        if (ScreenFader.Instance != null)
-            ScreenFader.Instance.StartWithFadeIn(fadeInDuration);
+        // Reveal the scene from the black that the cutscene's Fungus "Fade Screen" left behind.
+        // CameraManager persists across the scene load, so we fade its alpha back to 0 here.
+        FungusManager.Instance.CameraManager.Fade(0f, fadeInDuration, null);
 
         Debug.Log("GameInstance : " + GameState.Instance);
         Debug.Log("Returning From Battle : " + GameState.Instance.returningFromBattle);

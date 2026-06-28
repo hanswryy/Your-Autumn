@@ -319,6 +319,17 @@ public class BattleUIController : MonoBehaviour
         });
     }
     
+    // Hides all the action-selection menus and shows the battlefield/stat panels.
+    // Used when an action is confirmed without a target menu (e.g. self-targeted skills).
+    public void ShowBattleView()
+    {
+        actionPanel.SetActive(false);
+        skillListPanel.SetActive(false);
+        itemListPanel.SetActive(false);
+        targetPanel.SetActive(false);
+        ShowStatPanels();
+    }
+
     public void ShowBattleMessage(string message)
     {
         messagePanel.SetActive(true);

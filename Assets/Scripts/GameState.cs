@@ -333,7 +333,7 @@ public class GameState : MonoBehaviour
     {
         // Create the hero character
         CharStat hero = new CharStat();
-        hero.characterId = "hero";  // IMPORTANT: Use consistent ID format
+        hero.characterId = "hero";
         hero.characterName = "Hero";
         hero.level = 1;
         hero.maxHP = 90;
@@ -343,11 +343,12 @@ public class GameState : MonoBehaviour
         hero.attack = 45;
         hero.defense = 5;
         hero.speed = 8;
+        hero.critChance = 10;
         playerData.partyMembers.Add(hero);
         
         // Create the defender character
         CharStat defender = new CharStat();
-        defender.characterId = "cecil";  // IMPORTANT: Use consistent ID format
+        defender.characterId = "cecil";
         defender.characterName = "Cecil";
         defender.level = 1;
         defender.maxHP = 120;
@@ -355,8 +356,9 @@ public class GameState : MonoBehaviour
         defender.maxMP = 50;
         defender.currentMP = 50;
         defender.attack = 15;
-        defender.defense = 40;
+        defender.defense = 15;
         defender.speed = 6;
+        defender.critChance = 5;
         playerData.partyMembers.Add(defender);
     }
 

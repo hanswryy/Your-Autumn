@@ -40,6 +40,12 @@ public class movement : MonoBehaviour
     private bool isAttacking = false;
     public Animator swordAnim;
 
+    // Slash Visual Effect
+    [Header("Attack VFX")]
+    public float slashAnimDuration = 0.5f; // how long isSlash stays true before resetting
+    public GameObject hitFlashPrefab;      // spark spawned on enemies actually in range
+    public float hitFlashLifetime = 0.4f;
+
     // Knockback Variables
     public float knockbackForce = 5.0f;
     public float knockbackDuration = 1f;
@@ -170,6 +176,9 @@ public class movement : MonoBehaviour
         // Play attack animation
         playerAnimator.SetTrigger("slash");
 
+        // Play the sword's slash animation (drives the SlashVFX trail)
+        PlaySlashAnimation();
+
         // Check for battle initiation
         bool battleStarted = false;
 
@@ -186,8 +195,12 @@ public class movement : MonoBehaviour
         bool battleStarted = false;
         foreach (Collider enemy in enemies)
         {
+            if (enemy == null) continue;
             Debug.Log("Processing hit on: " + enemy.name + " at animation mid-point");
-            
+
+            // This enemy was in range when the attack connected - flash it
+            SpawnHitFlash(enemy.bounds.center);
+
             if (canInitiateBattles && Time.time > lastBattleTime + battleCooldown && !battleStarted)
             {
                 EnemyAI enemyAI = enemy.GetComponent<EnemyAI>();
@@ -208,6 +221,32 @@ public class movement : MonoBehaviour
         
         // Reset attack state to allow movement
         isAttacking = false;
+    }
+
+    void PlaySlashAnimation()
+    {
+        if (swordAnim == null) return;
+        // Enable the sword only for the attack window
+        swordAnim.gameObject.SetActive(true);
+        swordAnim.SetBool("isSlash", true);
+        StartCoroutine(ResetSlashBool());
+    }
+
+    IEnumerator ResetSlashBool()
+    {
+        yield return new WaitForSeconds(slashAnimDuration);
+        if (swordAnim != null)
+        {
+            swordAnim.SetBool("isSlash", false);
+            swordAnim.gameObject.SetActive(false);
+        }
+    }
+
+    void SpawnHitFlash(Vector3 position)
+    {
+        if (hitFlashPrefab == null) return;
+        GameObject flash = Instantiate(hitFlashPrefab, position, Quaternion.identity);
+        Destroy(flash, hitFlashLifetime);
     }
 
     void OnCollisionEnter(Collision collision)
