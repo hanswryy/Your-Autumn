@@ -544,13 +544,19 @@ public class BattleManager : MonoBehaviour
 
     public void ReturnToWorld()
     {
-        // Make sure GameState knows we're returning from battle
+        // The overworld was only suspended (loaded additively), so we don't reload
+        // it — we hand back to GameState, which reveals the overworld, unloads this
+        // battle scene, and clears the defeated enemy. Nothing regenerates.
         if (GameState.Instance != null)
         {
-            GameState.Instance.returningFromBattle = true;
             GameState.Instance.SaveGame();
+            GameState.Instance.ReturnFromBattle();
         }
-        
-        SceneManager.LoadScene("OverworldScene"); // Change to your world scene
+        else
+        {
+            // Fallback if there is no persistent GameState (e.g. testing the battle
+            // scene in isolation).
+            SceneManager.LoadScene("OverworldScene");
+        }
     }
 }

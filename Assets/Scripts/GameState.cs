@@ -30,6 +30,23 @@ public class GameState : MonoBehaviour
     public string lastBattleEnemyId;
     public bool returningFromBattle = false;
 
+    [Header("Battle Flow (additive)")]
+    [Tooltip("Battle is loaded additively on top of the overworld so the overworld " +
+             "is never unloaded and never regenerates. The overworld is simply " +
+             "hidden for the duration of the fight.")]
+    public string battleSceneName = "BattleScene";
+    [Tooltip("Fade length when hiding/revealing the overworld around a battle.")]
+    public float battleFadeDuration = 0.4f;
+
+    // The overworld scene we suspend while a battle is active.
+    private Scene overworldScene;
+    // The roots we actually disabled, so we re-enable exactly those (leaving
+    // intentionally-inactive objects, e.g. closed panels, alone).
+    private readonly List<GameObject> suspendedRoots = new List<GameObject>();
+    // Direct handle to the enemy that started the fight — far more robust than
+    // matching by name. With additive battles this object is still alive on return.
+    private GameObject lastBattleEnemy;
+
     // Awake is called when the script instance is being loaded
     void Awake()
     {
@@ -253,15 +270,18 @@ public class GameState : MonoBehaviour
         }
     }
 
-    public int currentNodeIndex = -1;
-
     public void StartBattle(GameObject enemy)
     {
         // Ignore re-triggers while a battle transition is already playing.
         if (BattleTransitionController.IsTransitioning)
             return;
 
-        // Store player position
+        // Remember the overworld so we can suspend/restore it; the active scene at
+        // this moment IS the overworld.
+        overworldScene = SceneManager.GetActiveScene();
+
+        // Store player position (kept for compatibility; with additive battles the
+        // player never actually moves).
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
@@ -269,7 +289,9 @@ public class GameState : MonoBehaviour
             Debug.Log($"Saved player position before battle: {playerPositionBeforeBattle}");
         }
 
-        // Store enemy ID (using instance ID if no other ID system exists)
+        // Keep a direct handle to the enemy so we can remove it on return without
+        // fragile name matching.
+        lastBattleEnemy = enemy;
         lastBattleEnemyId = enemy.name + "_" + enemy.GetInstanceID().ToString();
         Debug.Log($"Starting battle with enemy: {lastBattleEnemyId}");
 
@@ -277,14 +299,81 @@ public class GameState : MonoBehaviour
         returningFromBattle = true;
 
         // Play the Persona-style slow-mo zoom on the enemy, then load the battle
-        // scene. A controller placed in the scene lets you tune the effect in the
-        // inspector; otherwise we spin up a default one so it works out of the box.
+        // scene additively. A controller placed in the scene lets you tune the effect
+        // in the inspector; otherwise we spin up a default one so it works out of the box.
         BattleTransitionController transition = FindObjectOfType<BattleTransitionController>();
         if (transition == null)
         {
             transition = new GameObject("BattleTransition").AddComponent<BattleTransitionController>();
         }
         transition.BeginTransition(enemy);
+    }
+
+    // ── Additive battle flow ──────────────────────────────────────────────────
+    // Called by BattleTransitionController once the battle scene has finished
+    // loading additively and been activated. We hide the overworld (without
+    // unloading it) so only the battle renders/updates.
+    public void SuspendOverworldForBattle(Scene battleScene)
+    {
+        if (battleScene.IsValid())
+            SceneManager.SetActiveScene(battleScene);
+
+        suspendedRoots.Clear();
+        if (overworldScene.IsValid())
+        {
+            foreach (GameObject root in overworldScene.GetRootGameObjects())
+            {
+                if (root.activeSelf)
+                {
+                    suspendedRoots.Add(root);
+                    root.SetActive(false);
+                }
+            }
+        }
+    }
+
+    // Called by BattleManager when the fight is over. Reveals the overworld, unloads
+    // the battle scene, and clears out the defeated enemy. The player never moved,
+    // so there is nothing to reposition and nothing to regenerate.
+    public void ReturnFromBattle()
+    {
+        StartCoroutine(ReturnFromBattleRoutine());
+    }
+
+    private IEnumerator ReturnFromBattleRoutine()
+    {
+        if (ScreenFader.Instance != null)
+            yield return ScreenFader.Instance.FadeToBlack(battleFadeDuration);
+
+        // Re-enable exactly the roots we suspended.
+        foreach (GameObject root in suspendedRoots)
+            if (root != null) root.SetActive(true);
+        suspendedRoots.Clear();
+
+        if (overworldScene.IsValid())
+            SceneManager.SetActiveScene(overworldScene);
+
+        // Hand camera control back to gameplay — the battle transition left the
+        // CinemachineBrain disabled and the camera parked at the zoom pose. Doing this
+        // while the screen is still black lets it re-frame before we fade in.
+        BattleTransitionController.RestoreOverworldCamera();
+
+        // Unload the battle scene (it was loaded additively).
+        if (!string.IsNullOrEmpty(battleSceneName) &&
+            SceneManager.GetSceneByName(battleSceneName).isLoaded)
+        {
+            yield return SceneManager.UnloadSceneAsync(battleSceneName);
+        }
+
+        // Remove the enemy we just defeated.
+        if (lastBattleEnemy != null)
+            Destroy(lastBattleEnemy);
+        lastBattleEnemy = null;
+
+        returningFromBattle = false;
+
+        if (ScreenFader.Instance != null)
+            yield return ScreenFader.Instance.FadeFromBlack(battleFadeDuration);
     }
 
     private float timeSinceLastSave = 0f;

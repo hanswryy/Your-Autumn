@@ -23,6 +23,6 @@ public class StartScript : MonoBehaviour
 
     public void LoadOverworldScene()
     {
-        SceneManager.LoadScene("OverworldScene");
+        SceneManager.LoadScene("HubScene");
     }
 }

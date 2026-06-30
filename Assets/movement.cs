@@ -61,6 +61,26 @@ public class movement : MonoBehaviour
         }
     }
 
+    void OnEnable()
+    {
+        // Battles are now loaded additively, so the player object is suspended and
+        // re-enabled rather than recreated. The attack that starts a battle leaves
+        // isAttacking == true (it yield-breaks before clearing it), which would block
+        // FixedUpdate forever. Clear any leftover action state whenever we come back.
+        isAttacking = false;
+        isKnockedBack = false;
+        if (swordAnim != null)
+        {
+            swordAnim.SetBool("isSlash", false);
+            swordAnim.gameObject.SetActive(false);
+        }
+        if (playerAnimator != null)
+        {
+            playerAnimator.SetBool("isRunning", false);
+            playerAnimator.ResetTrigger("slash");
+        }
+    }
+
     private float moveHorizontal;
     private float moveVertical;
 

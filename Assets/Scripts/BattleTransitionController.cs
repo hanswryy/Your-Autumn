@@ -61,13 +61,25 @@ public class BattleTransitionController : MonoBehaviour
     {
         Camera cam = Camera.main;
 
+        // Snapshot the camera state so we can hand control back after the battle.
+        s_hijackedCam = cam;
+        s_hijackedBrain = cam != null ? cam.GetComponent<CinemachineBrain>() : null;
+        if (cam != null)
+        {
+            s_camPos = cam.transform.position;
+            s_camRot = cam.transform.rotation;
+            s_camFov = cam.fieldOfView;
+        }
+
         // Take manual control of the camera away from Cinemachine for the duration.
-        CinemachineBrain brain = cam != null ? cam.GetComponent<CinemachineBrain>() : null;
+        CinemachineBrain brain = s_hijackedBrain;
         if (brain != null)
             brain.enabled = false;
 
-        // Start loading the battle scene now, but hold the swap until we're done zooming.
-        AsyncOperation load = SceneManager.LoadSceneAsync(battleSceneName);
+        // Start loading the battle scene now, but hold the swap until we're done
+        // zooming. Loaded ADDITIVELY so the overworld is never unloaded — it is only
+        // hidden during the fight and so never regenerates.
+        AsyncOperation load = SceneManager.LoadSceneAsync(battleSceneName, LoadSceneMode.Additive);
         load.allowSceneActivation = false;
 
         // Drop into slow motion. Note: timeScale survives the scene load, so we
@@ -130,15 +142,74 @@ public class BattleTransitionController : MonoBehaviour
         Time.timeScale = 1f;
         Time.fixedDeltaTime = 0.02f;
 
-        IsTransitioning = false;
+        // Activate the additively-loaded battle scene, then hand off to GameState to
+        // hide the overworld. Waiting on `load` ensures the scene's objects exist
+        // before we suspend the overworld around it.
         load.allowSceneActivation = true;
+        yield return load;
+
+        Scene battleScene = SceneManager.GetSceneByName(battleSceneName);
+        if (GameState.Instance != null)
+            GameState.Instance.SuspendOverworldForBattle(battleScene);
+
+        // The battle scene is now the only thing visible; tear down the frozen blur
+        // frame. (In the old single-scene flow the overlay died with the unloaded
+        // overworld scene; additively it must be cleaned up by hand.)
+        CleanupBlurOverlay();
+
+        IsTransitioning = false;
+    }
+
+    // Camera state hijacked at the start of a transition, restored when we return
+    // from battle. The transition disables the CinemachineBrain and hand-drives the
+    // camera; with additive battles the same camera persists, so it would stay frozen
+    // at the zoom pose unless we hand control back.
+    static CinemachineBrain s_hijackedBrain;
+    static Camera s_hijackedCam;
+    static Vector3 s_camPos;
+    static Quaternion s_camRot;
+    static float s_camFov;
+
+    // Hands camera control back to gameplay. Re-enabling the brain is enough when one
+    // exists (it re-frames from the live virtual camera); otherwise we restore the
+    // transform/FOV we snapshotted. Called by GameState when revealing the overworld.
+    public static void RestoreOverworldCamera()
+    {
+        // Always put back the transform and FOV we snapshotted. The transition
+        // narrows the FOV (targetFOV) and the brain does not necessarily drive FOV in
+        // this setup, so re-enabling the brain alone leaves the camera zoomed in.
+        if (s_hijackedCam != null)
+        {
+            s_hijackedCam.transform.SetPositionAndRotation(s_camPos, s_camRot);
+            s_hijackedCam.fieldOfView = s_camFov;
+        }
+
+        // Hand position/rotation tracking back to Cinemachine (it re-frames from the
+        // live virtual camera). If it also drives FOV it will simply re-apply the same
+        // value we just restored.
+        if (s_hijackedBrain != null)
+            s_hijackedBrain.enabled = true;
+
+        s_hijackedBrain = null;
+        s_hijackedCam = null;
     }
 
     // The capture from the previous transition. We can't destroy a frame the
     // moment its blur finishes — the overlay keeps drawing it for a frame or two
     // until the battle scene activates, and a destroyed texture renders black. So
-    // we let it linger and free it at the start of the next transition instead.
+    // we let it linger and free it when the battle scene takes over.
     static Texture2D s_lingeringFrame;
+    // The overlay canvas showing the frozen frame. Marked DontDestroyOnLoad so the
+    // additive suspend of the overworld doesn't sweep it up; torn down explicitly.
+    static GameObject s_blurOverlay;
+
+    // Destroys the frozen-frame overlay and frees its texture once the battle scene
+    // is fully in control.
+    static void CleanupBlurOverlay()
+    {
+        if (s_blurOverlay != null) { Destroy(s_blurOverlay); s_blurOverlay = null; }
+        if (s_lingeringFrame != null) { Destroy(s_lingeringFrame); s_lingeringFrame = null; }
+    }
 
     // Captures the current (zoomed) frame and plays a radial blur on it via a
     // full-screen Screen Space Overlay RawImage.
@@ -180,8 +251,12 @@ public class BattleTransitionController : MonoBehaviour
         mat.SetVector("_Center", new Vector4(center.x, center.y, 0f, 0f));
         mat.SetFloat("_Progress", 0f);
 
-        // Build a full-screen overlay showing the frozen frame.
+        // Build a full-screen overlay showing the frozen frame. Keep it out of the
+        // overworld scene's root set (DontDestroyOnLoad) so the additive suspend
+        // doesn't disable it; we destroy it ourselves once the battle takes over.
         GameObject canvasObj = new GameObject("BattleBlurOverlay");
+        DontDestroyOnLoad(canvasObj);
+        s_blurOverlay = canvasObj;
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = blurSortingOrder;
