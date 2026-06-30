@@ -932,6 +932,7 @@ GameObject:
   m_Component:
   - component: {fileID: 789155308}
   - component: {fileID: 789155307}
+  - component: {fileID: 789155309}
   m_Layer: 0
   m_Name: OWManager
   m_TagString: Untagged
@@ -969,6 +970,30 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &789155309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 789155306}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46724b6bec027ce42b7966e0c302a1af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  battleSceneName: BattleScene
+  slowMotionScale: 0.05
+  zoomSpeed: 6
+  minDistanceToEnemy: 3
+  targetFOV: 90
+  fovSpeed: 30
+  lookSpeed: 5
+  minTransitionTime: 1.5
+  useRadialBlur: 1
+  blurMaterial: {fileID: 0}
+  blurDuration: 0.6
+  blurSortingOrder: 999
 --- !u!4 &891215276 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8564982206410336792, guid: d3399aebf1782b840b24e0b7766b383e,
@@ -2023,7 +2048,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1702317604}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.21149027, y: 0.6537284, z: -0.26948473, w: 0.67475116}
+  m_LocalRotation: {x: 0.21149027, y: 0.65372837, z: -0.26948473, w: 0.6747511}
   m_LocalPosition: {x: -3, y: -1.3771636, z: 26.711674}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0

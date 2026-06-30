@@ -310,6 +310,7 @@ public class BattleManager : MonoBehaviour
             yield return MoveCharacterTo(currentActor.transform, GetFrontPosition(currentActor, currentTarget));
             currentActor.PlayAttackAnimation();
             yield return new WaitForSeconds(0.4f);
+            StartCoroutine(CameraShake(0.2f, 0.3f));
         }
 
         // Execute action logic
@@ -377,6 +378,7 @@ public class BattleManager : MonoBehaviour
                 yield return MoveCharacterTo(enemy.transform, GetFrontPosition(enemy, currentTarget));
                 currentActor.PlayAttackAnimation();
                 yield return new WaitForSeconds(0.4f);
+                StartCoroutine(CameraShake(0.2f, 0.3f));
             }
 
             // Execute enemy action
@@ -435,6 +437,20 @@ public class BattleManager : MonoBehaviour
         }
         
         return false;
+    }
+    IEnumerator CameraShake(float duration, float magnitude)
+    {
+        Vector3 originalPosition = battleCamera.transform.position;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            battleCamera.transform.position = originalPosition + Random.insideUnitSphere * magnitude;
+            yield return null;
+        }
+
+        battleCamera.transform.position = originalPosition;
     }
 
     IEnumerator EndBattle(bool victory)

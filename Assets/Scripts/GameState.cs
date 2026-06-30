@@ -257,6 +257,10 @@ public class GameState : MonoBehaviour
 
     public void StartBattle(GameObject enemy)
     {
+        // Ignore re-triggers while a battle transition is already playing.
+        if (BattleTransitionController.IsTransitioning)
+            return;
+
         // Store player position
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
@@ -272,8 +276,15 @@ public class GameState : MonoBehaviour
         // Set returning from battle flag to true
         returningFromBattle = true;
 
-        // Load battle scene
-        SceneManager.LoadScene("BattleScene");
+        // Play the Persona-style slow-mo zoom on the enemy, then load the battle
+        // scene. A controller placed in the scene lets you tune the effect in the
+        // inspector; otherwise we spin up a default one so it works out of the box.
+        BattleTransitionController transition = FindObjectOfType<BattleTransitionController>();
+        if (transition == null)
+        {
+            transition = new GameObject("BattleTransition").AddComponent<BattleTransitionController>();
+        }
+        transition.BeginTransition(enemy);
     }
 
     private float timeSinceLastSave = 0f;
