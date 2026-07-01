@@ -1,8 +1,5 @@
 using UnityEngine;
 
-// Drop on any GameObject that has a trigger Collider.
-// Drag any component implementing IInteractable into the interactable slot.
-// Works for the blackboard, NPCs, chests — anything that needs a "Press Space" interaction.
 public class InteractTrigger : MonoBehaviour
 {
     [Tooltip("Component on any GameObject that implements IInteractable")]
@@ -66,7 +63,7 @@ public class InteractTrigger : MonoBehaviour
         if (promptUI) promptUI.SetActive(false);
     }
 
-    // Call this from Fungus (or anywhere) when the dialog closes,
+    // Call this from Fungus when the dialog closes,
     // so the player can interact again without re-entering the zone.
     public void OnDialogClosed()
     {

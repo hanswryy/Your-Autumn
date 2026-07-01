@@ -1,11 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// A single "screen" of the overworld — a self-contained prefab that knows its own
-// layout. Everything positional (where the player lands, where exits are, where
-// enemies stand) is authored as child transforms inside the prefab, so no code
-// ever hard-codes a world position. The WorldStreamer spawns one of these at a
-// fixed anchor and hands the player off to it.
 public class WorldBranch : MonoBehaviour
 {
     [Header("Layout (authored in the prefab)")]

@@ -151,9 +151,8 @@ public class BattleCharacter : MonoBehaviour
         defense = stats.defense;
         speed = stats.speed;
         critChance = stats.critChance;
-        statsInitialized = true; // keep the loaded HP/MP; don't let Start() reset them
+        statsInitialized = true;
 
-        // Build actions now that we know which character this is.
         InitializeActions();
         CaptureBaseStats();
     }
@@ -178,11 +177,10 @@ public class BattleCharacter : MonoBehaviour
     {
         if (isEnemy)
         {
-            // Simple AI: just use basic attack for now
+            // For now, enemies just pick the first available action. Later we can add AI logic here.
             return availableActions[0];
         }
         
-        // Player actions are selected via UI
         return null;
     }
     
@@ -198,7 +196,6 @@ public class BattleCharacter : MonoBehaviour
     
     public void TakeDamage(int damage)
     {
-        // Apply defense if defending
         if (isDefending)
         {
             damage = Mathf.Max(1, damage / 2);
@@ -207,10 +204,8 @@ public class BattleCharacter : MonoBehaviour
         
         currentHP = Mathf.Max(0, currentHP - damage);
 
-        // If this is an enemy and they're defeated, make them inactive
         if (isEnemy && currentHP <= 0)
         {
-            // Add a slight delay before deactivating to show the death
             StartCoroutine(DeactivateAfterDelay(0.5f));
         }
         

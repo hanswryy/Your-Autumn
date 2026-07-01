@@ -39,8 +39,6 @@ public class ScreenFader : MonoBehaviour
         img.AddComponent<CanvasGroup>().blocksRaycasts = false;
     }
 
-    // ── Public API ──────────────────────────────────────────────────────────
-
     public IEnumerator FadeToBlack(float duration)   => Fade(0f, 1f, duration);
     public IEnumerator FadeFromBlack(float duration)  => Fade(1f, 0f, duration);
 
@@ -57,8 +55,6 @@ public class ScreenFader : MonoBehaviour
         c.a = a;
         fadeImage.color = c;
     }
-
-    // ── Internal ────────────────────────────────────────────────────────────
 
     IEnumerator Fade(float from, float to, float duration)
     {

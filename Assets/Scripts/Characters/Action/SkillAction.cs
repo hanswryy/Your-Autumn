@@ -11,7 +11,7 @@ public class SkillAction : BattleAction
 
     public override IEnumerator Execute(BattleCharacter user, IReadOnlyList<BattleCharacter> targets, IBattlePresenter presenter)
     {
-        // Check MP cost (charged once for the whole skill, not per target).
+        // Check MP cost (charged once for the whole skill).
         if (user.currentMP < mpCost)
         {
             presenter.ShowMessage("Not enough MP!");

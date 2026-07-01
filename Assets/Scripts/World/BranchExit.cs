@@ -1,10 +1,5 @@
 using UnityEngine;
 
-// Put this on a child object of a WorldBranch prefab that has a trigger collider.
-// When the player walks into it, it asks the WorldStreamer to advance to a freshly
-// generated next branch. The "label" is purely informational — every exit leads to
-// the next branch — but you can read it later to bias what comes next (e.g. a
-// "left" exit could trend toward a different biome or difficulty).
 [RequireComponent(typeof(Collider))]
 public class BranchExit : MonoBehaviour
 {

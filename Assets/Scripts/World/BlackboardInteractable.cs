@@ -27,11 +27,10 @@ public class BlackboardInteractable : MonoBehaviour, IInteractable
 
     // ── Fungus YES branch ───────────────────────────────────────────────────
 
-    // Step 1: hand off control to the cutscene. Player stands idle until told to walk.
     public void EnableCutsceneMode()
     {
         GetComponent<BlackboardDoorTrigger>()?.LockOpen();
-        InteractTrigger.LockInteractions(); // block Space-interacts (e.g. Karina's shop) during the cutscene
+        InteractTrigger.LockInteractions();
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player == null) return;
@@ -45,10 +44,7 @@ public class BlackboardInteractable : MonoBehaviour, IInteractable
         SetPlayerRunning(false);
     }
 
-    // Call before a LeanTween "Move" command so the run animation plays while walking.
     public void PlayerStartWalk() => SetPlayerRunning(true);
-
-    // Call after a "Move" command finishes so the player idles during dialog.
     public void PlayerStopWalk() => SetPlayerRunning(false);
 
     private void SetPlayerRunning(bool running)
@@ -58,14 +54,12 @@ public class BlackboardInteractable : MonoBehaviour, IInteractable
         if (anim) anim.SetBool("isRunning", running);
     }
 
-    // Final step (after Fade Screen): load the overworld.
     public void GoToOverworld()
     {
-        InteractTrigger.UnlockInteractions(); // clear the lock so the next scene starts interactable
+        InteractTrigger.UnlockInteractions();
         SceneManager.LoadScene(overworldSceneName);
     }
 
-    // ── Fungus NO branch ────────────────────────────────────────────────────
     public void CancelInteract()
     {
         interactTrigger?.OnDialogClosed();

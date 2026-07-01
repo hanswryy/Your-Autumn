@@ -1,15 +1,6 @@
 using System.Collections;
 using UnityEngine;
 
-// Drives the infinite overworld by streaming one branch at a time.
-//
-// Because moving between branches is a fade-to-black teleport, every branch can
-// occupy the SAME spot in world space (the anchor). We therefore only ever keep
-// one branch alive: when the player walks into an exit we fade out, destroy the
-// current branch, spawn the next one at the anchor, drop the player on its spawn
-// point, and fade back in. Infinite by construction, no hard-coded layout.
-//
-// Replaces the old PathManager + PathGenerator pair.
 public class WorldStreamer : MonoBehaviour
 {
     public static WorldStreamer Instance { get; private set; }
@@ -53,23 +44,16 @@ public class WorldStreamer : MonoBehaviour
         if (player == null)
             player = GameObject.FindGameObjectWithTag("Player");
 
-        // Begin on a hand-placed branch if there is one, so the designer's starting
-        // area is used as-is. We must NOT spawn a duplicate from the table here — that
-        // was the bug that left a second, enemy-less branch on top of the real one.
         WorldBranch existing = startingBranch != null ? startingBranch : FindObjectOfType<WorldBranch>();
         if (existing != null)
         {
             current = existing;
-            currentPrefab = null; // unknown source prefab; allow any branch next
+            currentPrefab = null;
             if (table != null)
                 current.PopulateEnemies(table.enemyPrefabs, table.enemySpawnChance);
-            // The player is already standing in the hand-placed starting area, so we
-            // leave them where the designer put them.
         }
         else
         {
-            // No starting branch in the scene: generate the first one. The surrounding
-            // scene fade (cutscene / hub entry) covers the pop-in, so we don't fade.
             SpawnNextBranch();
             PlacePlayerAtCurrentBranch();
         }
@@ -80,7 +64,6 @@ public class WorldStreamer : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    // Called by a BranchExit when the player walks into it.
     public void Advance(BranchExit exit)
     {
         if (isTransitioning) return;
@@ -99,8 +82,6 @@ public class WorldStreamer : MonoBehaviour
         SpawnNextBranch();
         PlacePlayerAtCurrentBranch();
 
-        // Let the new branch's colliders/triggers settle before we reveal it, so the
-        // player doesn't immediately re-trigger an exit they were standing on.
         yield return null;
 
         yield return Fade(toBlack: false);
@@ -132,16 +113,9 @@ public class WorldStreamer : MonoBehaviour
         Vector3 pos = current.PlayerSpawnPosition;
         Quaternion rot = current.PlayerSpawnRotation;
 
-        // A CharacterController (if present) fights manual moves; disable it around
-        // the teleport. The fade hides everything here.
         CharacterController cc = player.GetComponent<CharacterController>();
         if (cc != null) cc.enabled = false;
 
-        // The player's Rigidbody is dynamic + interpolated. Setting only
-        // transform.position leaves the physics body behind, and interpolation then
-        // drags the visible transform back toward the old spot — so the player seems
-        // to land in the wrong place or not move at all. Move the BODY itself and
-        // clear momentum so it actually teleports.
         Rigidbody rb = player.GetComponent<Rigidbody>();
         if (rb != null)
         {
@@ -155,9 +129,7 @@ public class WorldStreamer : MonoBehaviour
 
         if (cc != null) cc.enabled = true;
     }
-
-    // Uses the shared ScreenFader so branch transitions match every other fade in
-    // the game. Falls back to a plain wait if no fader is present.
+    
     private IEnumerator Fade(bool toBlack)
     {
         if (ScreenFader.Instance != null)

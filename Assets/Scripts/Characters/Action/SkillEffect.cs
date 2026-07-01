@@ -1,16 +1,15 @@
 using UnityEngine;
 
 // Which stat a buff/debuff touches. Top-level so both BattleCharacter and SkillEffect
-// can use it without an awkward SkillAction.StatType reference.
+// can use it.
 public enum StatType { Attack, Defense, Speed }
 
 // One composable effect inside a SkillAction. A skill runs its list of effects against
-// each target, so a single skill can — for example — deal Damage AND apply a Buff simply
+// each target, so a single skill can - for example - deal Damage AND apply a Buff simply
 // by holding two effects.
 //
-// Authoring skills (combining/tuning effects) is pure data — no code change. The only
-// thing that touches this switch is adding a brand-new KIND of effect, which is rare and
-// lives in exactly one place.
+// Authoring skills (combining/tuning effects) is pure data. The only
+// thing that touches this switch is adding a brand-new KIND of effect.
 [System.Serializable]
 public class SkillEffect
 {

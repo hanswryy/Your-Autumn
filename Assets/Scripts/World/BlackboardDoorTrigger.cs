@@ -31,7 +31,7 @@ public class BlackboardDoorTrigger : MonoBehaviour
     [Header("Trigger Zone")]
     public float triggerRadius = 3f;
 
-    // ── state ──────────────────────────────────────────────────────────────
+    // State
     private Vector3 leftOrigin;
     private Vector3 rightOrigin;
     private bool    isOpen;
@@ -39,7 +39,7 @@ public class BlackboardDoorTrigger : MonoBehaviour
     private bool    locked;
     private Coroutine activeRoutine;
 
-    // ── setup ──────────────────────────────────────────────────────────────
+    // Setup
     void Awake()
     {
         var col        = GetComponent<SphereCollider>();
@@ -53,7 +53,7 @@ public class BlackboardDoorTrigger : MonoBehaviour
         if (rightHalf) rightOrigin = rightHalf.position;
     }
 
-    // ── trigger ────────────────────────────────────────────────────────────
+    // Trigger
     void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player") || isOpen || isAnimating) return;
@@ -78,7 +78,7 @@ public class BlackboardDoorTrigger : MonoBehaviour
         activeRoutine = StartCoroutine(routine);
     }
 
-    // ── sequences ──────────────────────────────────────────────────────────
+    // Sequence
     IEnumerator OpenSequence()
     {
         isAnimating = true;
@@ -111,7 +111,7 @@ public class BlackboardDoorTrigger : MonoBehaviour
         isAnimating = false;
     }
 
-    // ── animation helpers ──────────────────────────────────────────────────
+    // Anim helpers
     IEnumerator Rumble()
     {
         float t = 0f;
@@ -146,7 +146,6 @@ public class BlackboardDoorTrigger : MonoBehaviour
         if (rightHalf) rightHalf.position = rightEnd;
     }
 
-    // ── editor gizmo ───────────────────────────────────────────────────────
     void OnDrawGizmosSelected()
     {
         Gizmos.color = new Color(0.2f, 1f, 0.4f, 0.18f);

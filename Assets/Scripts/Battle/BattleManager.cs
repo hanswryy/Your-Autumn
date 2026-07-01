@@ -85,16 +85,11 @@ public class BattleManager : MonoBehaviour
     
     IEnumerator SetupBattle()
     {
-        // Setup UI
         uiController.SetupBattleUI();
         
-        // Create player characters
         SetupPlayerParty();
-        
-        // Create random number of enemies
         SetupEnemyParty();
         
-        // Show battle start UI
         uiController.ShowBattleMessage("Battle Start!");
         
         yield return new WaitForSeconds(2f);
@@ -117,16 +112,10 @@ public class BattleManager : MonoBehaviour
             
             for (int i = 0; i < characterCount; i++)
             {
-                // Get character data
                 CharStat charStats = GameState.Instance.playerData.partyMembers[i];
-                
-                // Select the appropriate prefab by index or ID
                 GameObject prefab = playerCharacterPrefabs[i % playerCharacterPrefabs.Length];
-                
-                // Instantiate and setup
                 GameObject playerObj = Instantiate(prefab, playerPartyContainer);
                 
-                // Position with spacing
                 playerObj.transform.localPosition = new Vector3(0, 0, startY + i * spacing);
 
                 BattleCharacter character = playerObj.GetComponent<BattleCharacter>();
@@ -196,7 +185,7 @@ public class BattleManager : MonoBehaviour
         BattleCharacter actor = turnOrder.NextActor();
         if (actor == null)
         {
-            // Round finished — rebuild the order from current Speeds (buffs and deaths
+            // Rebuild the order from current Speeds (buffs and deaths
             // since last round are now reflected), then take the first actor.
             turnOrder.BuildRound(playerParty, enemyParty);
             actor = turnOrder.NextActor();
@@ -297,8 +286,8 @@ public class BattleManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f);
 
-        // Approach only for a SINGLE-target attack. AoE/multi-target attacks stay in place
-        // and just swing; non-attacks (buffs/heals) never approach.
+        // Approach only for a single-target attack. AoE/multi-target attacks stay in place
+        // and just swing in-place, non-attacks (buffs/heals) never approach.
         bool isAttack = IsApproachAttack(currentAction) && currentTargets.Count > 0;
         bool approachSingle = isAttack && currentTargets.Count == 1;
 
@@ -316,7 +305,7 @@ public class BattleManager : MonoBehaviour
         yield return currentAction.Execute(currentActor, currentTargets, uiController);
 
         // The player always walked to the center at the start of their turn (see
-        // BeginPlayerTurn), so they always return home — whether they approached a single
+        // BeginPlayerTurn), so they always return home, whether they approached a single
         // target, stayed put for an AoE, or used a self/item action from the center.
         yield return MoveCharacterTo(currentActor.transform, actorOriginalPosition);
 

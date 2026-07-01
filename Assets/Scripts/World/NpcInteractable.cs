@@ -25,8 +25,6 @@ public class NpcInteractable : MonoBehaviour, IInteractable
         flowchart.ExecuteBlock(blockName);
     }
 
-    // Hook to the END of the Fungus block (Call Method) so the player can
-    // interact again without leaving and re-entering the trigger zone.
     public void OnDialogClosed()
     {
         interactTrigger?.OnDialogClosed();

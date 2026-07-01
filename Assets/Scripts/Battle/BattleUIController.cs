@@ -334,7 +334,6 @@ public class BattleUIController : MonoBehaviour, IBattlePresenter
         messagePanel.SetActive(true);
         battleMessageText.text = message;
         
-        // Hide message after delay
         StartCoroutine(HideMessageAfterDelay(2f));
     }
     
@@ -403,7 +402,6 @@ public class BattleUIController : MonoBehaviour, IBattlePresenter
         
         Destroy(damageObj, 2f);
         
-        // Update character stats
         UpdateCharacterStats();
     }
     
@@ -417,7 +415,6 @@ public class BattleUIController : MonoBehaviour, IBattlePresenter
         
         Destroy(healObj, 2f);
         
-        // Update character stats
         UpdateCharacterStats();
     }
     
@@ -430,8 +427,7 @@ public class BattleUIController : MonoBehaviour, IBattlePresenter
         mpText.text = "MP +" + mp.ToString();
         
         Destroy(mpObj, 2f);
-        
-        // Update character stats
+    
         UpdateCharacterStats();
     }
 

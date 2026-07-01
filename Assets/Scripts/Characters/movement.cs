@@ -63,10 +63,6 @@ public class movement : MonoBehaviour
 
     void OnEnable()
     {
-        // Battles are now loaded additively, so the player object is suspended and
-        // re-enabled rather than recreated. The attack that starts a battle leaves
-        // isAttacking == true (it yield-breaks before clearing it), which would block
-        // FixedUpdate forever. Clear any leftover action state whenever we come back.
         isAttacking = false;
         isKnockedBack = false;
         if (swordAnim != null)
@@ -86,11 +82,9 @@ public class movement : MonoBehaviour
 
     void Update()
     {
-        // Get input in Update for responsive controls
         moveHorizontal = Input.GetAxisRaw("Horizontal");
         moveVertical = Input.GetAxisRaw("Vertical");
         
-        // Handle non-physics inputs here
         if (Input.GetKeyDown(KeyCode.Space) && Time.time >= nextAttackTime && !InteractTrigger.PlayerInInteractZone)
         {
             Debug.Log("Attack initiated");
@@ -129,12 +123,6 @@ public class movement : MonoBehaviour
                 }
             }
         }
-
-        if (isGrounded && !isJumping)
-        {
-            // Optional: Reset Y velocity when grounded
-            rb.velocity = new Vector3(rb.velocity.x, 0, rb.velocity.z);
-        }
     }
 
 
@@ -142,13 +130,8 @@ public class movement : MonoBehaviour
     {
         Vector3 movement = new Vector3(horizontal, 0, vertical).normalized;
 
-        // Always set horizontal velocity based on input
         rb.velocity = new Vector3(movement.x * speed, rb.velocity.y, movement.z * speed);
-
-        // Check if moving to set animation
         bool isMoving = Mathf.Abs(horizontal) > 0.1f || Mathf.Abs(vertical) > 0.1f;
-
-        // Set animation based on movement
         if (playerAnimator != null)
         {
             playerAnimator.SetBool("isRunning", isMoving);
@@ -188,21 +171,13 @@ public class movement : MonoBehaviour
     {
         Debug.Log("Attacking!");
 
-        // Detect enemies within attack range
         Collider[] hitEnemies = Physics.OverlapSphere(attackPoint.position, attackRange, enemyLayers);
         isAttacking = true;
         playerAnimator.SetBool("isRunning", false); 
         
-        // Play attack animation
         playerAnimator.SetTrigger("slash");
 
-        // Play the sword's slash animation (drives the SlashVFX trail)
         PlaySlashAnimation();
-
-        // Check for battle initiation
-        bool battleStarted = false;
-
-        // Start a single coroutine that handles both battle initiation and attack cooldown
         StartCoroutine(AttackSequence(hitEnemies));
     }
 
@@ -211,14 +186,12 @@ public class movement : MonoBehaviour
         // Wait until the mid-point of the animation (the actual "hit")
         yield return new WaitForSeconds(timeToHit);
         
-        // At this point the attack "connects" - process battle initiation
         bool battleStarted = false;
         foreach (Collider enemy in enemies)
         {
             if (enemy == null) continue;
             Debug.Log("Processing hit on: " + enemy.name + " at animation mid-point");
 
-            // This enemy was in range when the attack connected - flash it
             SpawnHitFlash(enemy.bounds.center);
 
             if (canInitiateBattles && Time.time > lastBattleTime + battleCooldown && !battleStarted)
@@ -262,6 +235,7 @@ public class movement : MonoBehaviour
         }
     }
 
+    // TODO: create hitflash prefab on editor later
     void SpawnHitFlash(Vector3 position)
     {
         if (hitFlashPrefab == null) return;

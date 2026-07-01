@@ -10,7 +10,7 @@ public class DefendAction : BattleAction
         // Defend is inherently self-targeted.
         user.SetDefending(true);
 
-        // Visual feedback
+        // Visual feedback for later animation 
         if (user.animator != null)
         {
             user.animator.SetTrigger("Defend");
