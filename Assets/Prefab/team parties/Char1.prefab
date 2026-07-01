@@ -98,6 +98,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: def4d0722ffa7da4db2a2cc853181623, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  characterId: 
   CharacterName: Hero
   level: 1
   isEnemy: 0
@@ -108,9 +109,13 @@ MonoBehaviour:
   attack: 45
   defense: 10
   speed: 5
+  critChance: 5
   characterRenderer: {fileID: 0}
   animator: {fileID: 0}
   availableActions: []
+  skills:
+  - {fileID: 11400000, guid: dc855d028d258ee4a9155c635ca233f8, type: 2}
+  - {fileID: 11400000, guid: 0b2199698a634f942b8bf372336c4f48, type: 2}
 --- !u!95 &6522727658257736696
 Animator:
   serializedVersion: 5

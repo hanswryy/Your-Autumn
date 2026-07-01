@@ -22,12 +22,12 @@ public class SkillAction : BattleAction
     [Tooltip("How many of the affected character's turns the buff/debuff lasts before wearing off.")]
     public int duration = 1;
 
-    public override IEnumerator Execute(BattleCharacter user, BattleCharacter target)
+    public override IEnumerator Execute(BattleCharacter user, BattleCharacter target, IBattlePresenter presenter)
     {
         // Check MP cost
         if (user.currentMP < mpCost)
         {
-            BattleManager.Instance.uiController.ShowBattleMessage("Not enough MP!");
+            presenter.ShowMessage("Not enough MP!");
             yield return new WaitForSeconds(1f);
             yield break;
         }
@@ -44,30 +44,30 @@ public class SkillAction : BattleAction
                 int damage = Mathf.Max(1, (atk * attackScalePercent / 100) + power - (target.defense / 2));
                 target.TakeDamage(damage);
                 if (isCrit)
-                    BattleManager.Instance.uiController.ShowBattleMessage("Critical hit!");
-                BattleManager.Instance.uiController.ShowDamageNumber(target.transform.position, damage);
+                    presenter.ShowMessage("Critical hit!");
+                presenter.ShowDamage(target, damage);
                 break;
 
             case SkillType.Heal:
                 // Calculate healing
                 int healing = power;
                 target.Heal(healing);
-                BattleManager.Instance.uiController.ShowHealingNumber(target.transform.position, healing);
+                presenter.ShowHealing(target, healing);
                 break;
 
             case SkillType.Buff:
                 target.ApplyBuff(affectedStat, statAmount, duration);
-                BattleManager.Instance.uiController.ShowBattleMessage($"{target.CharacterName}'s {affectedStat} rose!");
+                presenter.ShowMessage($"{target.CharacterName}'s {affectedStat} rose!");
                 break;
 
             case SkillType.Debuff:
                 target.ApplyBuff(affectedStat, -statAmount, duration);
-                BattleManager.Instance.uiController.ShowBattleMessage($"{target.CharacterName}'s {affectedStat} fell!");
+                presenter.ShowMessage($"{target.CharacterName}'s {affectedStat} fell!");
                 break;
 
             case SkillType.GuaranteeCrit:
                 user.GuaranteeNextCrit();
-                BattleManager.Instance.uiController.ShowBattleMessage($"{user.CharacterName} focuses! Next attack will be critical!");
+                presenter.ShowMessage($"{user.CharacterName} focuses! Next attack will be critical!");
                 break;
         }
 

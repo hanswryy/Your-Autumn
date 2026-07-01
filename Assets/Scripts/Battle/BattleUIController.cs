@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class BattleUIController : MonoBehaviour
+public class BattleUIController : MonoBehaviour, IBattlePresenter
 {
     [Header("Panel References")]
     public GameObject actionPanel;
@@ -150,7 +150,8 @@ public class BattleUIController : MonoBehaviour
     public void ShowActionMenu(BattleCharacter character)
     {
         HideAllPanels();
-        HideStatPanels();
+        ShowStatPanels();
+
         actionPanel.SetActive(true);
         
         // Setup button listeners
@@ -172,7 +173,6 @@ public class BattleUIController : MonoBehaviour
         defendButton.onClick.RemoveAllListeners();
         defendButton.onClick.AddListener(() => {
             BattleManager.Instance.OnActionSelected(character.availableActions[1]);
-            ShowStatPanels();
         });
     }
     
@@ -315,7 +315,6 @@ public class BattleUIController : MonoBehaviour
         backButton.GetComponent<Button>().onClick.AddListener(() => {
             targetPanel.SetActive(false);
             actionPanel.SetActive(true);
-            HideStatPanels();
         });
     }
     
@@ -390,6 +389,8 @@ public class BattleUIController : MonoBehaviour
         itemListPanel.SetActive(false);
         victoryPanel.SetActive(false);
         defeatPanel.SetActive(false);
+        playerStatsPanel.gameObject.SetActive(false);
+        enemyStatsPanel.gameObject.SetActive(false);
     }
     
     public void ShowDamageNumber(Vector3 position, int damage)
@@ -434,12 +435,13 @@ public class BattleUIController : MonoBehaviour
         UpdateCharacterStats();
     }
 
-    // Add these methods to toggle stat panels
-    private void HideStatPanels()
-    {
-        playerStatsPanel.gameObject.SetActive(false);
-        enemyStatsPanel.gameObject.SetActive(false);
-    }
+    // ── IBattlePresenter ──────────────────────────────────────────────────────
+    // Thin adapters so battle actions can report results without knowing about this
+    // class's position-based UI methods.
+    public void ShowMessage(string message) => ShowBattleMessage(message);
+    public void ShowDamage(BattleCharacter target, int amount) => ShowDamageNumber(target.transform.position, amount);
+    public void ShowHealing(BattleCharacter target, int amount) => ShowHealingNumber(target.transform.position, amount);
+    public void ShowMPRestored(BattleCharacter target, int amount) => ShowMPRestoredNumber(target.transform.position, amount);
     
     private void ShowStatPanels()
     {

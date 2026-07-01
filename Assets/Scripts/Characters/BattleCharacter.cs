@@ -26,8 +26,14 @@ public class BattleCharacter : MonoBehaviour
     public Animator animator;
 
     [Header("Actions")]
+    // Runtime list the battle/UI reads: default Attack/Defend followed by `skills`.
     public List<BattleAction> availableActions = new List<BattleAction>();
-    
+
+    [Tooltip("This character's skills, authored as SkillAction assets and assigned per " +
+             "prefab. Appended after the default Attack/Defend — no code changes needed " +
+             "to add a character or a skill.")]
+    public List<SkillAction> skills = new List<SkillAction>();
+
     private bool isDefending = false;
     private bool actionsInitialized = false;
 
@@ -121,52 +127,15 @@ public class BattleCharacter : MonoBehaviour
             availableActions.Add(defend);
         }
 
-        // Add character-specific skills based on the character's id.
-        AddCharacterSkills();
+        // Append this character's authored skills (assigned per prefab in the inspector).
+        // Data-driven: adding a character or skill needs no code change.
+        foreach (var skill in skills)
+        {
+            if (skill != null && !availableActions.Contains(skill))
+                availableActions.Add(skill);
+        }
 
         actionsInitialized = true;
-    }
-
-    private void AddCharacterSkills()
-    {
-        switch (characterId)
-        {
-            case "hero":
-                // Strike: efficient attack that scales from the attack stat.
-                SkillAction strike = ScriptableObject.CreateInstance<SkillAction>();
-                strike.actionName = "Strike";
-                strike.description = "A focused blow dealing 1.5x Attack.";
-                strike.targetType = TargetType.Enemy;
-                strike.skillType = SkillAction.SkillType.Damage;
-                strike.mpCost = 5;
-                strike.attackScalePercent = 150; // hits for 1.5x the user's attack
-                strike.power = 0;
-                availableActions.Add(strike);
-
-                // Focus: makes this character's next attack a guaranteed critical hit.
-                SkillAction focus = ScriptableObject.CreateInstance<SkillAction>();
-                focus.actionName = "Focus";
-                focus.description = "Concentrate so your next attack is a guaranteed critical.";
-                focus.targetType = TargetType.Self;
-                focus.skillType = SkillAction.SkillType.GuaranteeCrit;
-                focus.mpCost = 8;
-                availableActions.Add(focus);
-                break;
-
-            case "cecil":
-                // Shield: raises the chosen ally's Defense (can target self).
-                SkillAction shield = ScriptableObject.CreateInstance<SkillAction>();
-                shield.actionName = "Shield";
-                shield.description = "Bolster an ally's Defense.";
-                shield.targetType = TargetType.Ally;
-                shield.skillType = SkillAction.SkillType.Buff;
-                shield.mpCost = 10;
-                shield.affectedStat = SkillAction.StatType.Defense;
-                shield.statAmount = 5;
-                shield.duration = 2; // lasts through the target's next two turns
-                availableActions.Add(shield);
-                break;
-        }
     }
 
     public void SetupCharacter(CharStat stats)

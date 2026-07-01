@@ -50,7 +50,9 @@ public class BattleManager : MonoBehaviour
     private BattleCharacter currentActor;
     private BattleCharacter currentTarget;
     private BattleAction currentAction;
-    private int currentPartyMemberIndex = 0;
+
+    // Builds and dispenses the Speed-ordered turn order, rebuilt each round.
+    private readonly TurnOrderHandler turnOrder = new TurnOrderHandler();
     
     void Awake()
     {
@@ -95,10 +97,10 @@ public class BattleManager : MonoBehaviour
         uiController.ShowBattleMessage("Battle Start!");
         
         yield return new WaitForSeconds(2f);
-        
-        // Start first turn
-        state = BattleTurnState.PlayerSelect;
-        StartPlayerTurn();
+
+        // Build the first round's Speed-based order, then start dispensing turns.
+        turnOrder.BuildRound(playerParty, enemyParty);
+        AdvanceTurn();
     }
     
     void SetupPlayerParty()
@@ -181,28 +183,39 @@ public class BattleManager : MonoBehaviour
         uiController.SetupEnemyUI(enemyParty);
     }
     
-    void StartPlayerTurn()
+    // Drives the battle: hands out the next actor in the round's Speed order, starting
+    // a fresh round when the current one is exhausted. Players open the action menu;
+    // enemies act via AI. Called once at battle start and after every action resolves.
+    void AdvanceTurn()
     {
-        if (currentPartyMemberIndex >= playerParty.Count)
+        // The action that just finished may have ended the battle.
+        if (CheckBattleEnd())
+            return;
+
+        BattleCharacter actor = turnOrder.NextActor();
+        if (actor == null)
         {
-            currentPartyMemberIndex = 0;
+            // Round finished — rebuild the order from current Speeds (buffs and deaths
+            // since last round are now reflected), then take the first actor.
+            turnOrder.BuildRound(playerParty, enemyParty);
+            actor = turnOrder.NextActor();
+            if (actor == null)
+                return; // safety: no one left who can act
+        }
+
+        currentActor = actor;
+
+        if (actor.isEnemy)
+        {
             state = BattleTurnState.EnemyAction;
-            StartCoroutine(EnemyTurn());
-            return;
+            StartCoroutine(EnemyAct(actor));
         }
-        
-        currentActor = playerParty[currentPartyMemberIndex];
-
-        // Skip turn if character is incapacitated
-        if (!currentActor.CanAct())
+        else
         {
-            currentPartyMemberIndex++;
-            StartPlayerTurn();
-            return;
+            // Move the active character to the center, zoom in, then show the action menu.
+            state = BattleTurnState.PlayerSelect;
+            StartCoroutine(BeginPlayerTurn());
         }
-
-        // Move the active character to the center, zoom in, then show the action menu.
-        StartCoroutine(BeginPlayerTurn());
     }
 
     IEnumerator BeginPlayerTurn()
@@ -314,88 +327,72 @@ public class BattleManager : MonoBehaviour
         }
 
         // Execute action logic
-        yield return currentAction.Execute(currentActor, currentTarget);
+        yield return currentAction.Execute(currentActor, currentTarget, uiController);
 
         // Walk the character back to where they started while the camera zooms back out.
         yield return MoveCharacterTo(currentActor.transform, actorOriginalPosition);
 
-        // Check for battle end conditions
-        if (CheckBattleEnd())
-            yield break;
-
-        // Move to next character
-        currentPartyMemberIndex++;
-        state = BattleTurnState.PlayerSelect;
-        StartPlayerTurn();
+        // Hand back to the turn-order driver (it checks for battle end first).
+        AdvanceTurn();
     }
     
-    IEnumerator EnemyTurn()
+    // Resolves a single enemy's turn (the turn-order driver decides when an enemy acts,
+    // so this no longer loops over the whole enemy party).
+    IEnumerator EnemyAct(BattleCharacter enemy)
     {
-        foreach (var enemy in enemyParty)
+        yield return new WaitForSeconds(1f);
+
+        // Expire any buffs that have run their course before this enemy acts.
+        enemy.TickBuffs();
+
+        // Enemy selects action and target
+        currentActor = enemy;
+        currentAction = enemy.SelectAction();
+
+        // Choose target based on action type
+        if (currentAction.targetType == TargetType.Enemy || currentAction.targetType == TargetType.AllEnemies)
         {
-            if (!enemy.IsAlive())
-                continue;
-                
-            yield return new WaitForSeconds(1f);
-            
-            // Expire any buffs that have run their course before this enemy acts.
-            enemy.TickBuffs();
-
-            // Enemy selects action and target
-            currentActor = enemy;
-            currentAction = enemy.SelectAction();
-            
-            // Choose target based on action type
-            if (currentAction.targetType == TargetType.Enemy || currentAction.targetType == TargetType.AllEnemies)
+            // Enemy targeting players
+            List<BattleCharacter> aliveParty = playerParty.FindAll(p => p.IsAlive());
+            if (aliveParty.Count > 0)
             {
-                // Enemy targeting players
-                List<BattleCharacter> aliveParty = playerParty.FindAll(p => p.IsAlive());
-                if (aliveParty.Count > 0)
-                {
-                    currentTarget = aliveParty[Random.Range(0, aliveParty.Count)];
-                }
+                currentTarget = aliveParty[Random.Range(0, aliveParty.Count)];
             }
-            else
-            {
-                // Enemy targeting other enemies (for healing, etc)
-                List<BattleCharacter> aliveEnemies = enemyParty.FindAll(e => e.IsAlive());
-                if (aliveEnemies.Count > 0)
-                {
-                    currentTarget = aliveEnemies[Random.Range(0, aliveEnemies.Count)];
-                }
-            }
-
-            // Announce the enemy action.
-            uiController.ShowBattleMessage($"{currentActor.CharacterName} uses {currentAction.actionName}!");
-
-            yield return new WaitForSeconds(0.5f);
-
-            // Remember the enemy's spot, then approach the target for an attack.
-            Vector3 enemyOrigin = enemy.transform.position;
-
-            if (IsApproachAttack(currentAction) && currentTarget != null)
-            {
-                yield return MoveCharacterTo(enemy.transform, GetFrontPosition(enemy, currentTarget));
-                currentActor.PlayAttackAnimation();
-                yield return new WaitForSeconds(0.4f);
-                StartCoroutine(CameraShake(0.2f, 0.3f));
-            }
-
-            // Execute enemy action
-            yield return currentAction.Execute(currentActor, currentTarget);
-
-            // Send the enemy back to where it started.
-            yield return MoveCharacterTo(enemy.transform, enemyOrigin);
-
-            // Check for battle end
-            if (CheckBattleEnd())
-                yield break;
         }
-        
-        // Back to player turn
-        currentPartyMemberIndex = 0;
-        state = BattleTurnState.PlayerSelect;
-        StartPlayerTurn();
+        else
+        {
+            // Enemy targeting other enemies (for healing, etc)
+            List<BattleCharacter> aliveEnemies = enemyParty.FindAll(e => e.IsAlive());
+            if (aliveEnemies.Count > 0)
+            {
+                currentTarget = aliveEnemies[Random.Range(0, aliveEnemies.Count)];
+            }
+        }
+
+        // Announce the enemy action.
+        uiController.ShowBattleMessage($"{currentActor.CharacterName} uses {currentAction.actionName}!");
+
+        yield return new WaitForSeconds(0.5f);
+
+        // Remember the enemy's spot, then approach the target for an attack.
+        Vector3 enemyOrigin = enemy.transform.position;
+
+        if (IsApproachAttack(currentAction) && currentTarget != null)
+        {
+            yield return MoveCharacterTo(enemy.transform, GetFrontPosition(enemy, currentTarget));
+            currentActor.PlayAttackAnimation();
+            yield return new WaitForSeconds(0.4f);
+            StartCoroutine(CameraShake(0.2f, 0.3f));
+        }
+
+        // Execute enemy action
+        yield return currentAction.Execute(currentActor, currentTarget, uiController);
+
+        // Send the enemy back to where it started.
+        yield return MoveCharacterTo(enemy.transform, enemyOrigin);
+
+        // Hand back to the turn-order driver (it checks for battle end first).
+        AdvanceTurn();
     }
     
     bool CheckBattleEnd()

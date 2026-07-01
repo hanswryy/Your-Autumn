@@ -98,6 +98,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: def4d0722ffa7da4db2a2cc853181623, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  characterId: 
   CharacterName: Cecil
   level: 1
   isEnemy: 0
@@ -108,9 +109,12 @@ MonoBehaviour:
   attack: 10
   defense: 50
   speed: 5
+  critChance: 5
   characterRenderer: {fileID: 0}
   animator: {fileID: 0}
   availableActions: []
+  skills:
+  - {fileID: 11400000, guid: 2972ac8d8d8e1024786a3108c504067d, type: 2}
 --- !u!95 &3502271648787123301
 Animator:
   serializedVersion: 5

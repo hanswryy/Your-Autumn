@@ -6,7 +6,7 @@ public class AttackAction : BattleAction
 {
     public int damageMultiplier = 100; // As percentage
     
-    public override IEnumerator Execute(BattleCharacter user, BattleCharacter target)
+    public override IEnumerator Execute(BattleCharacter user, BattleCharacter target, IBattlePresenter presenter)
     {
         // Roll for a critical hit, which doubles the attacker's attack stat.
         bool isCrit;
@@ -20,8 +20,8 @@ public class AttackAction : BattleAction
 
         // Display damage (announce the crit first, if any)
         if (isCrit)
-            BattleManager.Instance.uiController.ShowBattleMessage("Critical hit!");
-        BattleManager.Instance.uiController.ShowDamageNumber(target.transform.position, damage);
+            presenter.ShowMessage("Critical hit!");
+        presenter.ShowDamage(target, damage);
 
         yield return new WaitForSeconds(1f);
     }

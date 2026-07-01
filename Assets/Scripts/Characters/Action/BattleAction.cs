@@ -10,5 +10,7 @@ public abstract class BattleAction : ScriptableObject
     public TargetType targetType;
     public int mpCost = 0;
     
-    public abstract IEnumerator Execute(BattleCharacter user, BattleCharacter target);
+    // `presenter` lets the action report results (messages, damage/heal numbers) without
+    // depending on the concrete UI. BattleManager supplies it.
+    public abstract IEnumerator Execute(BattleCharacter user, BattleCharacter target, IBattlePresenter presenter);
 }
