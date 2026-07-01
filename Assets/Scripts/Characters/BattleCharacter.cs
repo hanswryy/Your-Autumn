@@ -46,7 +46,7 @@ public class BattleCharacter : MonoBehaviour
     // Temporary, turn-limited stat changes applied by skills.
     private class ActiveBuff
     {
-        public SkillAction.StatType stat;
+        public StatType stat;
         public int amount;
         public int turnsRemaining;
     }
@@ -233,7 +233,7 @@ public class BattleCharacter : MonoBehaviour
 
     // Applies a stat change right now and tracks it so it expires after `duration` of this
     // character's own turns. Positive amount = buff, negative = debuff.
-    public void ApplyBuff(SkillAction.StatType stat, int amount, int duration)
+    public void ApplyBuff(StatType stat, int amount, int duration)
     {
         ModifyStat(stat, amount);
         activeBuffs.Add(new ActiveBuff { stat = stat, amount = amount, turnsRemaining = duration });
@@ -254,17 +254,17 @@ public class BattleCharacter : MonoBehaviour
         }
     }
 
-    private void ModifyStat(SkillAction.StatType stat, int amount)
+    private void ModifyStat(StatType stat, int amount)
     {
         switch (stat)
         {
-            case SkillAction.StatType.Attack:
+            case StatType.Attack:
                 attack = Mathf.Max(0, attack + amount);
                 break;
-            case SkillAction.StatType.Defense:
+            case StatType.Defense:
                 defense = Mathf.Max(0, defense + amount);
                 break;
-            case SkillAction.StatType.Speed:
+            case StatType.Speed:
                 speed = Mathf.Max(0, speed + amount);
                 break;
         }

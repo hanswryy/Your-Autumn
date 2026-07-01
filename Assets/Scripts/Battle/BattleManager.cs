@@ -48,7 +48,8 @@ public class BattleManager : MonoBehaviour
     private List<BattleCharacter> enemyParty = new List<BattleCharacter>();
     private BattleTurnState state;
     private BattleCharacter currentActor;
-    private BattleCharacter currentTarget;
+    // Resolved targets for the current action: one for single-target, many for AoE.
+    private List<BattleCharacter> currentTargets = new List<BattleCharacter>();
     private BattleAction currentAction;
 
     // Builds and dispenses the Speed-ordered turn order, rebuilt each round.
@@ -240,73 +241,52 @@ public class BattleManager : MonoBehaviour
     {
         currentAction = action;
 
-        // Self-targeted actions (Defend, Focus, ...) don't need a target menu.
-        if (action.targetType == TargetType.Self)
+        switch (action.targetType)
         {
-            currentTarget = currentActor;
-            uiController.ShowBattleView();
-            state = BattleTurnState.PlayerAction;
-            StartCoroutine(PerformAction());
-            return;
+            // Fixed-group modes skip the target-selection menu entirely.
+            case TargetType.Self:
+                currentTargets = new List<BattleCharacter> { currentActor };
+                ResolveSelectedAction();
+                break;
+
+            case TargetType.AllEnemies:
+                currentTargets = AliveEnemies();
+                ResolveSelectedAction();
+                break;
+
+            case TargetType.AllAllies:
+                currentTargets = AliveAllies();
+                ResolveSelectedAction();
+                break;
+
+            // Single-target modes let the player pick one target from a menu.
+            default:
+                uiController.ShowTargetMenu(GetValidTargets(action));
+                break;
         }
-
-        // Determine valid targets for this action
-        List<BattleCharacter> validTargets = GetValidTargets(action);
-
-        // Show target selection UI
-        uiController.ShowTargetMenu(validTargets);
     }
-    
+
     public void OnTargetSelected(BattleCharacter target)
     {
-        currentTarget = target;
-        
-        // Execute action
+        currentTargets = new List<BattleCharacter> { target };
+        ResolveSelectedAction();
+    }
+
+    // Shared tail once the targets are known: hide the menus and run the action.
+    private void ResolveSelectedAction()
+    {
+        uiController.ShowBattleView();
         state = BattleTurnState.PlayerAction;
         StartCoroutine(PerformAction());
     }
-    
+
+    private List<BattleCharacter> AliveEnemies() => enemyParty.FindAll(e => e.IsAlive());
+    private List<BattleCharacter> AliveAllies() => playerParty.FindAll(p => p.IsAlive());
+
+    // Targets offered in the single-target selection menu.
     private List<BattleCharacter> GetValidTargets(BattleAction action)
     {
-        List<BattleCharacter> validTargets = new List<BattleCharacter>();
-        
-        if (action.targetType == TargetType.Enemy)
-        {
-            // For attacks, skills targeting enemies
-            foreach (var enemy in enemyParty)
-            {
-                if (enemy.IsAlive())
-                {
-                    validTargets.Add(enemy);
-                }
-            }
-        }
-        else if (action.targetType == TargetType.Ally)
-        {
-            // For healing, buffs targeting allies
-            foreach (var ally in playerParty)
-            {
-                validTargets.Add(ally);
-            }
-        }
-        else if (action.targetType == TargetType.AllEnemies)
-        {
-            // For AOE attacks, return first enemy as reference
-            if (enemyParty.Count > 0)
-            {
-                validTargets.Add(enemyParty[0]);
-            }
-        }
-        else if (action.targetType == TargetType.AllAllies)
-        {
-            // For AOE healing, return first ally as reference
-            if (playerParty.Count > 0)
-            {
-                validTargets.Add(playerParty[0]);
-            }
-        }
-        
-        return validTargets;
+        return action.targetType == TargetType.Ally ? AliveAllies() : AliveEnemies();
     }
     
     IEnumerator PerformAction()
@@ -317,19 +297,27 @@ public class BattleManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f);
 
-        // For an attack (or damaging skill), walk up to the chosen enemy before swinging.
-        if (IsApproachAttack(currentAction) && currentTarget != null)
+        // Approach only for a SINGLE-target attack. AoE/multi-target attacks stay in place
+        // and just swing; non-attacks (buffs/heals) never approach.
+        bool isAttack = IsApproachAttack(currentAction) && currentTargets.Count > 0;
+        bool approachSingle = isAttack && currentTargets.Count == 1;
+
+        if (isAttack)
         {
-            yield return MoveCharacterTo(currentActor.transform, GetFrontPosition(currentActor, currentTarget));
+            if (approachSingle)
+                yield return MoveCharacterTo(currentActor.transform, GetFrontPosition(currentActor, currentTargets[0]));
+
             currentActor.PlayAttackAnimation();
             yield return new WaitForSeconds(0.4f);
             StartCoroutine(CameraShake(0.2f, 0.3f));
         }
 
-        // Execute action logic
-        yield return currentAction.Execute(currentActor, currentTarget, uiController);
+        // Execute action logic against every resolved target.
+        yield return currentAction.Execute(currentActor, currentTargets, uiController);
 
-        // Walk the character back to where they started while the camera zooms back out.
+        // The player always walked to the center at the start of their turn (see
+        // BeginPlayerTurn), so they always return home — whether they approached a single
+        // target, stayed put for an AoE, or used a self/item action from the center.
         yield return MoveCharacterTo(currentActor.transform, actorOriginalPosition);
 
         // Hand back to the turn-order driver (it checks for battle end first).
@@ -345,54 +333,56 @@ public class BattleManager : MonoBehaviour
         // Expire any buffs that have run their course before this enemy acts.
         enemy.TickBuffs();
 
-        // Enemy selects action and target
+        // Enemy selects action and resolves its target(s).
         currentActor = enemy;
         currentAction = enemy.SelectAction();
-
-        // Choose target based on action type
-        if (currentAction.targetType == TargetType.Enemy || currentAction.targetType == TargetType.AllEnemies)
-        {
-            // Enemy targeting players
-            List<BattleCharacter> aliveParty = playerParty.FindAll(p => p.IsAlive());
-            if (aliveParty.Count > 0)
-            {
-                currentTarget = aliveParty[Random.Range(0, aliveParty.Count)];
-            }
-        }
-        else
-        {
-            // Enemy targeting other enemies (for healing, etc)
-            List<BattleCharacter> aliveEnemies = enemyParty.FindAll(e => e.IsAlive());
-            if (aliveEnemies.Count > 0)
-            {
-                currentTarget = aliveEnemies[Random.Range(0, aliveEnemies.Count)];
-            }
-        }
+        currentTargets = ResolveEnemyTargets(currentAction);
 
         // Announce the enemy action.
         uiController.ShowBattleMessage($"{currentActor.CharacterName} uses {currentAction.actionName}!");
 
         yield return new WaitForSeconds(0.5f);
 
-        // Remember the enemy's spot, then approach the target for an attack.
+        // Remember the enemy's spot. Approach only for a single-target attack; AoE stays put.
         Vector3 enemyOrigin = enemy.transform.position;
+        bool isAttack = IsApproachAttack(currentAction) && currentTargets.Count > 0;
+        bool approachSingle = isAttack && currentTargets.Count == 1;
 
-        if (IsApproachAttack(currentAction) && currentTarget != null)
+        if (isAttack)
         {
-            yield return MoveCharacterTo(enemy.transform, GetFrontPosition(enemy, currentTarget));
+            if (approachSingle)
+                yield return MoveCharacterTo(enemy.transform, GetFrontPosition(enemy, currentTargets[0]));
+
             currentActor.PlayAttackAnimation();
             yield return new WaitForSeconds(0.4f);
             StartCoroutine(CameraShake(0.2f, 0.3f));
         }
 
-        // Execute enemy action
-        yield return currentAction.Execute(currentActor, currentTarget, uiController);
+        // Execute enemy action against all resolved targets.
+        yield return currentAction.Execute(currentActor, currentTargets, uiController);
 
-        // Send the enemy back to where it started.
-        yield return MoveCharacterTo(enemy.transform, enemyOrigin);
+        // Send the enemy back only if it walked out.
+        if (approachSingle)
+            yield return MoveCharacterTo(enemy.transform, enemyOrigin);
 
         // Hand back to the turn-order driver (it checks for battle end first).
         AdvanceTurn();
+    }
+
+    // Picks an enemy's targets: the player party for offensive actions, fellow enemies
+    // otherwise (e.g. healing). AoE modes hit the whole group; single modes hit one at random.
+    private List<BattleCharacter> ResolveEnemyTargets(BattleAction action)
+    {
+        bool targetsPlayers = action.targetType == TargetType.Enemy || action.targetType == TargetType.AllEnemies;
+        List<BattleCharacter> pool = targetsPlayers ? AliveAllies() : AliveEnemies();
+
+        if (pool.Count == 0)
+            return new List<BattleCharacter>();
+
+        if (action.targetType == TargetType.AllEnemies || action.targetType == TargetType.AllAllies)
+            return pool;
+
+        return new List<BattleCharacter> { pool[Random.Range(0, pool.Count)] };
     }
     
     bool CheckBattleEnd()
@@ -523,8 +513,9 @@ public class BattleManager : MonoBehaviour
     {
         if (action is AttackAction)
             return true;
-        if (action is SkillAction skill && skill.skillType == SkillAction.SkillType.Damage)
-            return true;
+        // A skill "approaches" if any of its effects deals damage.
+        if (action is SkillAction skill)
+            return skill.effects.Exists(e => e != null && e.kind == SkillEffect.Kind.Damage);
         return false;
     }
 

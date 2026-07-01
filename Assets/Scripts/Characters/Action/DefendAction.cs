@@ -1,12 +1,13 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "Defend", menuName = "Battle/Actions/Defend")]
 public class DefendAction : BattleAction
 {
-    public override IEnumerator Execute(BattleCharacter user, BattleCharacter target, IBattlePresenter presenter)
+    public override IEnumerator Execute(BattleCharacter user, IReadOnlyList<BattleCharacter> targets, IBattlePresenter presenter)
     {
-        // Set defending status
+        // Defend is inherently self-targeted.
         user.SetDefending(true);
 
         // Visual feedback

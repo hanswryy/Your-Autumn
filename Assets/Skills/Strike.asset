@@ -11,14 +11,16 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4d1bae095c60a4046a5ddd156d6dbb91, type: 3}
   m_Name: Strike
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   actionName: Strike
   description: A focused blow dealing 1.5x Attack.
   targetType: 2
   mpCost: 5
-  skillType: 0
-  power: 0
-  attackScalePercent: 150
-  affectedStat: 0
-  statAmount: 5
-  duration: 1
+  effects:
+  - kind: 0
+    attackScalePercent: 150
+    power: 0
+    healAmount: 20
+    stat: 0
+    statAmount: 5
+    duration: 1

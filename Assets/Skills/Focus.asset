@@ -16,9 +16,11 @@ MonoBehaviour:
   description: Concentrate so your next attack is a guaranteed critical.
   targetType: 0
   mpCost: 8
-  skillType: 4
-  power: 20
-  attackScalePercent: 100
-  affectedStat: 0
-  statAmount: 5
-  duration: 1
+  effects:
+  - kind: 3
+    attackScalePercent: 100
+    power: 0
+    healAmount: 20
+    stat: 0
+    statAmount: 5
+    duration: 1

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public enum TargetType { Self, Ally, Enemy, AllAllies, AllEnemies }
@@ -9,8 +10,8 @@ public abstract class BattleAction : ScriptableObject
     public string description;
     public TargetType targetType;
     public int mpCost = 0;
-    
-    // `presenter` lets the action report results (messages, damage/heal numbers) without
-    // depending on the concrete UI. BattleManager supplies it.
-    public abstract IEnumerator Execute(BattleCharacter user, BattleCharacter target, IBattlePresenter presenter);
+
+    // Runs against every resolved target (one for single-target moves, many for AoE).
+    // `presenter` reports results without coupling the action to concrete UI.
+    public abstract IEnumerator Execute(BattleCharacter user, IReadOnlyList<BattleCharacter> targets, IBattlePresenter presenter);
 }

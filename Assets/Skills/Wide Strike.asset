@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4d1bae095c60a4046a5ddd156d6dbb91, type: 3}
-  m_Name: Shield
-  m_EditorClassIdentifier:
-  actionName: Shield
-  description: Bolster an ally's Defense.
-  targetType: 1
+  m_Name: Wide Strike
+  m_EditorClassIdentifier: 
+  actionName: Strike
+  description: A focused blow dealing 1.5x Attack.
+  targetType: 4
   mpCost: 10
   effects:
-  - kind: 2
-    attackScalePercent: 100
+  - kind: 0
+    attackScalePercent: 175
     power: 0
     healAmount: 20
-    stat: 1
+    stat: 0
     statAmount: 5
-    duration: 2
+    duration: 1
